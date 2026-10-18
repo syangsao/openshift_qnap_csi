@@ -1,0 +1,10 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: qnap-iscsi
+provisioner: csi.trident.qnap.io
+parameters:
+  selector: "usage=kubernetes"
+  fsType: "ext4"
+  replacementTimeout: "120"
+allowVolumeExpansion: true

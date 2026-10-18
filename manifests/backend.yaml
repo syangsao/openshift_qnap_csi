@@ -1,0 +1,15 @@
+apiVersion: trident.qnap.io/v1
+kind: TridentBackendConfig
+metadata:
+  name: backend-nas01
+  namespace: trident
+spec:
+  version: 1
+  storageDriverName: qnap-nas
+  backendName: nas01
+  credentials:
+    name: backend-nas01-secret
+  storage:
+    - serviceLevel: k8s-pool
+      labels:
+        usage: kubernetes

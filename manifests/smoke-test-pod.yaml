@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: qnap-iscsi-smoke
+spec:
+  restartPolicy: Never
+  containers:
+    - name: test
+      image: registry.access.redhat.com/ubi9/ubi-minimal
+      command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          df -hT /data
+          echo "qnap-csi-ok $(date -u +%s)" > /data/hello.txt
+          sync
+          cat /data/hello.txt
+          sleep 30
+      volumeMounts:
+        - name: data
+          mountPath: /data
+  volumes:
+    - name: data
+      persistentVolumeClaim:
+        claimName: qnap-iscsi-example
