@@ -286,6 +286,27 @@ Measured end-to-end on a 2 Gi volume, from the CSI logs and QNAP API timestamps:
 
 Remounting an existing volume skips provisioning and target/zvol creation, so it lands in
 the ~5–10s range.
+## I/O performance (dd, sequential)
+
+Measured on a 4 Gi PVC (`qnap-iscsi`, ext4 over iSCSI single-path via multipath), from inside
+a pod with `direct=1` and 1 MiB blocks:
+
+| Direction | Throughput |
+|---|---|
+| Sequential write | **93.1 MB/s** |
+| Sequential read | **105 MB/s** |
+
+```bash
+# write
+dd if=/dev/zero of=/data/fio.img bs=1M count=256 oflag=direct conv=fdatasync
+# read (after drop_caches)
+dd if=/data/fio.img of=/dev/null bs=1M iflag=direct
+```
+
+These are **sequential** numbers only. A `fio` random-IOPS/latency suite was attempted but the
+custom image could not be pulled by crio (it forced HTTPS against a plain-HTTP local registry),
+so no 4k random IOPS/latency data is captured yet. The ~90–105 MB/s sequential figure is the
+practical floor for this iSCSI-over-VLAN-40 path on zpool1 (SATA SSD RAID-1).
 
 ## Operations
 
