@@ -26,19 +26,32 @@ Driver compatibility: upstream v1.6.2 supports QTS 5.1+ **and** QuTS hero h5.1+ 
 
 ## Architecture
 
-```
-OpenShift SNO (sno.syangsao.net, 192.168.40.45)
-└── namespace trident
-    ├── trident-operator        (deployment)
-    ├── trident-controller      (deployment, 6 containers)
-    └── trident-node-linux      (daemonset, runs privileged on the node)
-        │
-        │  management API  http://192.168.40.20:8080  (authLogin.cgi)
-        │  iSCSI data     192.168.40.20:3260
-        ▼
-nas01 (QuTS hero)
-    └── storage pools zpool1 / zpool2 / zpool3
-        └── driver-created zvol + iSCSI target/LUN
+```mermaid
+flowchart LR
+    subgraph SNO["OpenShift SNO — sno.syangsao.net (192.168.40.45)"]
+        subgraph TRIDENT["namespace trident"]
+            OP["trident-operator<br/>(deployment)"]
+            CT["trident-controller<br/>(deployment, 6 containers)"]
+            ND["trident-node-linux<br/>(daemonset, privileged)"]
+        end
+    end
+
+    subgraph NAS["nas01 — QNAP TS-h886 (QuTS hero)"]
+        API["Management API<br/>192.168.40.20:8080"]
+        ISCSI["iSCSI portal<br/>192.168.40.20:3260"]
+        subgraph POOLS["storage pools"]
+            P1["zpool1<br/>SATA SSD RAID-1"]
+            P2["zpool2<br/>HDD RAID-5"]
+            P3["zpool3<br/>NVMe RAID-1"]
+        end
+        LUN[("driver-created<br/>zvol + target/LUN")]
+    end
+
+    OP --> CT
+    CT -- "HTTP authLogin.cgi" --> API
+    ND -- "iSCSI data" --> ISCSI
+    ISCSI --> LUN
+    LUN -. "provisioned on<br/>driver-selected pool" .-> POOLS
 ```
 
 ## Prerequisites (verified state)
