@@ -256,6 +256,37 @@ Placing a volume specifically on zpool3 would require the driver's import path a
 pre-created LUN (not tested here), or a change on the QNAP side. (`raidLevel`, `ssdCache`
 and `tiering` are the documented feature filters.)
 
+## Provisioning latency
+
+Measured end-to-end on a 2 Gi volume, from the CSI logs and QNAP API timestamps:
+
+| Phase | Duration | Evidence |
+|---|---|---|
+| PVC created → `CreateVolume` picked up | ~8–10s | provisioner `--retry-interval-start=8s` |
+| `CreateVolume` → zvol created | 9s | 12:57:22 → 12:57:25 prep, 12:57:31 zvol |
+| zvol → iSCSI target created | **14s** | 12:57:31 → 12:57:45 |
+| target → LUN mapped | 3s | 12:57:45 → 12:57:48 |
+| volume readback → `ProvisioningSuccess` | 4s | 12:57:48 → 12:57:52 |
+| attach (`VolumeAttachment`) → `NodeStage` | 10s | 12:57:52 → 12:58:02 |
+| discovery + login + multipath device | 3s | 12:58:02 → 12:58:05 |
+| format ext4 + mount (`NodePublish`) | 2s | 12:58:05 → 12:58:07 |
+| container start | ~5s | pod `Running` ~12:58:12 |
+
+**Total ≈ 50–55s.** First-provision only.
+
+* **QNAP API latency dominates (~27s).** Create volume, create target, map LUN and read
+  back are sequential synchronous CGI calls. `Create iSCSI Target` is consistently **14s**
+  (also observed 12:25:33 → 12:25:47 in the first test); the driver cannot parallelize
+  them because each step depends on the previous one.
+* **Attach pipeline (~10s).** The external-attacher creates the `VolumeAttachment` and
+  kubelet reconciles before `NodeStageVolume` runs.
+* **Node-side work is cheap (~5s):** iSCSI login → multipath → ext4 format → mount.
+* Minor driver quirk: it probes `:3260` (empty portal IP) first, gets `exit status 21`,
+  then retries `192.168.40.20:3260` — ~2s wasted.
+
+Remounting an existing volume skips provisioning and target/zvol creation, so it lands in
+the ~5–10s range.
+
 ## Operations
 
 Create:
